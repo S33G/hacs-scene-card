@@ -13,7 +13,7 @@ interface HomeAssistant {
 }
 
 class AreaSceneChipsCard extends HTMLElement {
-  private _config?: { areas: string[]; show_names: boolean };
+  private _config?: { areas: string[]; show_names: boolean; show_title: boolean };
   private _hass?: HomeAssistant;
   private _areas: RegistryArea[] = [];
   private _entities: RegistryEntity[] = [];
@@ -37,7 +37,7 @@ class AreaSceneChipsCard extends HTMLElement {
     if (!config || !Array.isArray(config.areas) || config.areas.some((id) => typeof id !== "string" || !id.trim())) {
       throw new Error("Configure one or more area IDs in `areas`.");
     }
-    this._config = { show_names: false, ...config };
+    this._config = { show_names: false, show_title: true, ...config };
     this._render();
     if (this._hass) this._loadRegistries();
   }
@@ -63,7 +63,7 @@ class AreaSceneChipsCard extends HTMLElement {
   getCardSize() { return Math.max(1, (this._config?.areas?.length || 1) * 2); }
   getGridOptions() { return { rows: "auto", columns: 12, min_rows: 1 }; }
   getConfigElement() { return document.createElement("area-scene-chips-card-editor"); }
-  static getStubConfig() { return { type: "custom:area-scene-chips-card", areas: [], show_names: false }; }
+  static getStubConfig() { return { type: "custom:area-scene-chips-card", areas: [], show_names: false, show_title: true }; }
 
   async _loadRegistries() {
     if (!this._hass?.callWS || !this._config) return;
@@ -163,7 +163,7 @@ class AreaSceneChipsCard extends HTMLElement {
         const active = group.latest === id;
         return `<button type="button" data-entity="${this._escape(id)}" title="${this._escape(name)}" aria-label="${this._escape(name)}${active ? ", last activated" : ""}${unavailable ? ", unavailable" : ""}" aria-pressed="${active}" ${unavailable ? "disabled aria-disabled=\"true\"" : ""} class="${active ? "active" : ""}"><ha-icon icon="${this._escape(icon)}"></ha-icon>${this._config.show_names ? `<span class="name">${this._escape(name)}</span>` : ""}</button>`;
       }).join("");
-      return `<section class="area" aria-label="${this._escape(group.area.name)}"><div class="label">${this._escape(group.area.name)}</div><div class="chips">${chips}</div></section>`;
+      return `<section class="area" aria-label="${this._escape(group.area.name)}" title="${this._escape(group.area.name)}">${this._config.show_title ? `<div class="label">${this._escape(group.area.name)}</div>` : ""}<div class="chips">${chips}</div></section>`;
     }).join("")}</ha-card>`;
     this.shadowRoot.querySelectorAll("button[data-entity]").forEach((button) => button.addEventListener("click", () => this._activate(button.dataset.entity)));
   }
@@ -174,7 +174,7 @@ class AreaSceneChipsCard extends HTMLElement {
 }
 
 class AreaSceneChipsCardEditor extends HTMLElement {
-  private _config: { areas: string[]; show_names: boolean } = { areas: [], show_names: false };
+  private _config: { areas: string[]; show_names: boolean; show_title: boolean } = { areas: [], show_names: false, show_title: true };
   private _hass?: HomeAssistant;
   private _areas: RegistryArea[] = [];
   private _entities: RegistryEntity[] = [];
@@ -184,12 +184,12 @@ class AreaSceneChipsCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._config = { areas: [], show_names: false };
+    this._config = { areas: [], show_names: false, show_title: true };
     this._areas = [];
     this._entities = [];
   }
 
-  setConfig(config) { this._config = { areas: [], show_names: false, ...config }; this._render(); }
+  setConfig(config) { this._config = { areas: [], show_names: false, show_title: true, ...config }; this._render(); }
   set hass(hass: HomeAssistant) { this._hass = hass; if (!this._loaded) this._load(); this._render(); }
 
   connectedCallback() {
@@ -229,16 +229,17 @@ class AreaSceneChipsCardEditor extends HTMLElement {
       select { box-sizing:border-box; width:100%; min-height:160px; padding:8px; color:var(--primary-text-color); background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:4px; }
       .hint { color:var(--secondary-text-color); font-size:var(--ha-font-size-s, 12px); margin-top:5px; }
       .toggle { display:flex; align-items:center; gap:10px; margin-top:12px; }
-    </style><label for="scenes">Scenes</label><select id="scenes" multiple aria-label="Select scenes; all scenes in their areas will appear">${scenes.map(({ entry, state }) => {
+    </style><label for="scenes">Scenes</label><select id="scenes" multiple aria-label="Select scenes; all scenes in their areas will appear">${scenes.length ? scenes.map(({ entry, state }) => {
       const name = state.attributes?.friendly_name || entry.entity_id;
       const area = this._areas.find((item) => item.area_id === entry.area_id)?.name || entry.area_id;
       return `<option value="${this._escape(entry.entity_id)}" ${selectedAreas.has(entry.area_id) ? "selected" : ""}>${this._escape(name)} — ${this._escape(area)}</option>`;
-    }).join("")}</select><div class="hint">Choose one or more scenes. The card shows all Home Assistant scenes in their areas, including scenes added later.</div><label class="toggle"><input id="names" type="checkbox" ${this._config.show_names ? "checked" : ""}> Show scene names</label>`;
+    }).join("") : `<option disabled>No Home Assistant scenes with area assignments were found.</option>`}</select><div class="hint">Choose scenes by name and area. The card shows all Home Assistant scenes in the selected areas, including scenes added later.</div><label class="toggle"><input id="names" type="checkbox" ${this._config.show_names ? "checked" : ""}> Show scene names</label><label class="toggle"><input id="titles" type="checkbox" ${this._config.show_title ? "checked" : ""}> Show area names</label>`;
     this.shadowRoot.querySelector("#scenes")?.addEventListener("change", (event) => {
       const areaIds = [...new Set([...event.target.selectedOptions].map((option) => this._entities.find((entry) => entry.entity_id === option.value)?.area_id).filter(Boolean))];
       this._update({ ...this._config, areas: areaIds });
     });
     this.shadowRoot.querySelector("#names")?.addEventListener("change", (event) => this._update({ ...this._config, show_names: event.target.checked }));
+    this.shadowRoot.querySelector("#titles")?.addEventListener("change", (event) => this._update({ ...this._config, show_title: event.target.checked }));
   }
 
   _update(config) { this._config = config; this._render(); this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true })); }

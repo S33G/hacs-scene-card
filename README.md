@@ -15,11 +15,14 @@ areas:
   - studio
   - living_room
 show_names: false
+show_title: true
 ```
 
 The `areas` value contains Home Assistant area IDs. The visual editor offers a multi-select of Home Assistant scenes; selecting a scene includes its area, and the card then discovers all Home Assistant scenes in that area, including scenes added later. Scenes without a direct area assignment and scenes provided by other integrations are omitted.
 
-Names are hidden by default. Scene names remain available as tooltips and accessible labels. Unavailable scenes cannot be activated. Tapping an available scene calls `scene.turn_on`.
+Scene names are hidden by default; their names remain available as tooltips and accessible labels. Area names are shown by default and can be hidden with `show_title: false`; hidden area names remain available as row tooltips and accessible labels. Unavailable scenes cannot be activated. Tapping an available scene calls `scene.turn_on`.
+
+The visual editor provides a multi-select of scenes, plus toggles for scene names and area names. Selecting a scene includes its area, and all Home Assistant scenes in that area are displayed.
 
 ## Build from source
 
