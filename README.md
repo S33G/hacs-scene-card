@@ -23,7 +23,7 @@ Names are hidden by default. Scene names remain available as tooltips and access
 
 ## Build from source
 
-The TypeScript source is in `src/area-scene-chips-card.ts`. The checked-in `area-scene-chips-card.js` is the standalone dashboard resource installed by HACS.
+The TypeScript source is in `src/area-scene-chips-card.ts`. The checked-in `hacs-scene-card.js` is the standalone dashboard resource installed by HACS. Its filename matches the GitHub repository name as required for HACS Dashboard plugins.
 
 ```sh
 npm install
