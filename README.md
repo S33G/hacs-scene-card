@@ -26,7 +26,7 @@ The visual editor provides a multi-select of scenes, plus toggles for scene name
 
 ## Build from source
 
-The TypeScript source is in `src/area-scene-chips-card.ts`. The checked-in `hacs-scene-card.js` is the standalone dashboard resource installed by HACS. Its filename matches the GitHub repository name as required for HACS Dashboard plugins.
+The TypeScript source is in `src/area-scene-chips-card.ts`, and styles are in `src/hacs-scene-card.css`. The build places both installable files in `dist/`. HACS installs the JavaScript and its companion CSS together; the JavaScript loads the stylesheet from its own directory. The JavaScript filename matches the GitHub repository name as required for HACS Dashboard plugins.
 
 ```sh
 npm install

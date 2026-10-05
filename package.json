@@ -4,8 +4,7 @@
   "private": true,
   "description": "A compact Home Assistant scene card grouped by area",
   "scripts": {
-    "build": "esbuild src/area-scene-chips-card.ts --bundle --target=es2020 --outfile=hacs-scene-card.js",
-    "watch": "npm run build -- --watch"
+    "build": "mkdir -p dist && esbuild src/area-scene-chips-card.ts --bundle --target=es2020 --format=esm --outfile=dist/hacs-scene-card.js && cp src/hacs-scene-card.css dist/hacs-scene-card.css"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

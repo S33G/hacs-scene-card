@@ -1,0 +1,111 @@
+:host {
+  display: block;
+}
+
+ha-card {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  padding: 4px 0;
+}
+
+.error {
+  color: var(--error-color, #db4437);
+  padding: 8px;
+}
+
+.loading {
+  color: var(--secondary-text-color);
+  padding: 8px;
+}
+
+.area {
+  margin: 0 0 8px;
+}
+
+.area:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  color: var(--secondary-text-color);
+  font-size: var(--ha-font-size-s, 12px);
+  margin: 0 0 3px 4px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--secondary-background-color, #f4f4f4);
+  color: var(--primary-text-color);
+  font: inherit;
+  min-height: 40px;
+  min-width: 40px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.active {
+  color: var(--state-active-color, var(--primary-color));
+}
+
+ha-icon {
+  --mdc-icon-size: 20px;
+}
+
+.name {
+  font-size: var(--ha-font-size-s, 12px);
+  white-space: nowrap;
+}
+
+label {
+  display: block;
+  margin: 12px 0 4px;
+  color: var(--primary-text-color);
+}
+
+select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 160px;
+  padding: 8px;
+  color: var(--primary-text-color);
+  background: var(--card-background-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+}
+
+.hint {
+  color: var(--secondary-text-color);
+  font-size: var(--ha-font-size-s, 12px);
+  margin-top: 5px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
