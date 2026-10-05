@@ -1,5 +1,7 @@
 :host {
   display: block;
+  color: var(--primary-text-color);
+  font-family: var(--ha-font-family, inherit);
 }
 
 ha-card {
@@ -80,32 +82,82 @@ ha-icon {
   white-space: nowrap;
 }
 
-label {
-  display: block;
-  margin: 12px 0 4px;
-  color: var(--primary-text-color);
+.area-fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
 }
 
-select {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 160px;
-  padding: 8px;
+.area-fieldset legend {
   color: var(--primary-text-color);
+  font-size: var(--ha-font-size-m, 14px);
+  font-weight: 500;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.area-list {
   background: var(--card-background-color);
   border: 1px solid var(--divider-color);
-  border-radius: 4px;
+  border-radius: var(--ha-card-border-radius, 12px);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.area-option {
+  align-items: center;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.area-option + .area-option {
+  border-top: 1px solid var(--divider-color);
+}
+
+.area-option:hover {
+  background: var(--secondary-background-color);
+}
+
+.unknown-area {
+  color: var(--error-color, #db4437);
+}
+
+.area-option:focus-within {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.area-message {
+  color: var(--secondary-text-color);
+  padding: 12px;
+}
+
+.area-option input,
+.toggle input {
+  accent-color: var(--primary-color);
+  flex: none;
+  height: 18px;
+  margin: 0;
+  width: 18px;
 }
 
 .hint {
   color: var(--secondary-text-color);
   font-size: var(--ha-font-size-s, 12px);
-  margin-top: 5px;
+  line-height: 1.4;
+  margin: 8px 2px 16px;
 }
 
 .toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
+  cursor: pointer;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 2px;
 }

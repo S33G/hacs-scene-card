@@ -24,6 +24,7 @@ function attachCardStylesheet(root: ShadowRoot) {
 }
 
 class AreaSceneChipsCard extends HTMLElement {
+  private _content: HTMLDivElement;
   private _config?: { areas: string[]; show_names: boolean; show_title: boolean };
   private _hass?: HomeAssistant;
   private _areas: RegistryArea[] = [];
@@ -36,6 +37,8 @@ class AreaSceneChipsCard extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     attachCardStylesheet(this.shadowRoot!);
+    this._content = document.createElement("div");
+    this.shadowRoot!.append(this._content);
     this._config = undefined;
     this._areas = [];
     this._entities = [];
@@ -151,7 +154,7 @@ class AreaSceneChipsCard extends HTMLElement {
     if (!this.shadowRoot || !this._config) return;
     const groups = this._sceneGroups();
     const message = this._registryError || (!this._registryReady ? "Loading scenes…" : "");
-    this.shadowRoot.innerHTML = `<ha-card>${message ? `<div class="${this._registryError ? "error" : "loading"}" role="${this._registryError ? "alert" : "status"}">${this._escape(message)}</div>` : groups.map((group) => {
+    this._content.innerHTML = `<ha-card>${message ? `<div class="${this._registryError ? "error" : "loading"}" role="${this._registryError ? "alert" : "status"}">${this._escape(message)}</div>` : groups.map((group) => {
       const chips = group.scenes.map(({ entry, state }) => {
         const id = entry.entity_id;
         const name = state.attributes?.friendly_name || entry.name || id;
@@ -162,7 +165,7 @@ class AreaSceneChipsCard extends HTMLElement {
       }).join("");
       return `<section class="area" aria-label="${this._escape(group.area.name)}" title="${this._escape(group.area.name)}">${this._config.show_title ? `<div class="label">${this._escape(group.area.name)}</div>` : ""}<div class="chips">${chips}</div></section>`;
     }).join("")}</ha-card>`;
-    this.shadowRoot.querySelectorAll<HTMLButtonElement>("button[data-entity]").forEach((button) => button.addEventListener("click", () => this._activate(button.dataset.entity!)));
+    this._content.querySelectorAll<HTMLButtonElement>("button[data-entity]").forEach((button) => button.addEventListener("click", () => this._activate(button.dataset.entity!)));
   }
 
   _escape(value) {
@@ -171,29 +174,37 @@ class AreaSceneChipsCard extends HTMLElement {
 }
 
 class AreaSceneChipsCardEditor extends HTMLElement {
+  private _content: HTMLDivElement;
   private _config: { areas: string[]; show_names: boolean; show_title: boolean } = { areas: [], show_names: false, show_title: true };
   private _hass?: HomeAssistant;
   private _areas: RegistryArea[] = [];
-  private _entities: RegistryEntity[] = [];
   private _loading = false;
   private _loaded = false;
+  private _loadError = "";
+  private _rendered = false;
   private _unsubscribers: Array<() => void> = [];
   private _subscriptionsPending = false;
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     attachCardStylesheet(this.shadowRoot!);
+    this._content = document.createElement("div");
+    this.shadowRoot!.append(this._content);
     this._config = { areas: [], show_names: false, show_title: true };
     this._areas = [];
-    this._entities = [];
   }
 
-  setConfig(config) { this._config = { areas: [], show_names: false, show_title: true, ...config }; this._render(); }
+  setConfig(config) {
+    const next = { show_names: false, show_title: true, ...config, areas: Array.isArray(config?.areas) ? config.areas : [] };
+    const changed = this._config.show_names !== next.show_names || this._config.show_title !== next.show_title ||
+      this._config.areas.length !== next.areas.length || this._config.areas.some((id, index) => id !== next.areas[index]);
+    this._config = next;
+    if (!this._rendered || changed) this._render();
+  }
   set hass(hass: HomeAssistant) {
     this._hass = hass;
     this._subscribeRegistryEvents();
     if (!this._loaded) this._load();
-    this._render();
   }
 
   connectedCallback() { this._subscribeRegistryEvents(); }
@@ -202,7 +213,7 @@ class AreaSceneChipsCardEditor extends HTMLElement {
     if (!this.isConnected || !this._hass?.connection?.subscribeEvents || this._unsubscribers.length || this._subscriptionsPending) return;
     this._subscriptionsPending = true;
     try {
-      const unsubscribers = await Promise.all(["entity_registry_updated", "area_registry_updated"].map((eventType) =>
+      const unsubscribers = await Promise.all(["area_registry_updated"].map((eventType) =>
         this._hass.connection.subscribeEvents(() => { this._loaded = false; this._load(); }, eventType),
       ));
       if (!this.isConnected) unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -216,39 +227,49 @@ class AreaSceneChipsCardEditor extends HTMLElement {
   async _load() {
     if (!this._hass?.callWS || this._loading || this._loaded) return;
     this._loading = true;
+    this._render();
     try {
-      [this._areas, this._entities] = await Promise.all([
-        this._hass.callWS({ type: "config/area_registry/list" }),
-        this._hass.callWS({ type: "config/entity_registry/list" }),
-      ]);
+      this._areas = await this._hass.callWS<RegistryArea[]>({ type: "config/area_registry/list" });
       this._loaded = true;
-    } catch (error) { console.error("Area Scene Chips Card editor: registry request failed", error); }
+      this._loadError = "";
+    } catch (error) {
+      this._loadError = "Could not load Home Assistant areas.";
+      console.error("Area Scene Chips Card editor: area registry request failed", error);
+    }
     this._loading = false;
     this._render();
   }
 
   _render() {
-    if (!this.shadowRoot) return;
-    const scenes = this._entities.filter((entry) => entry.entity_id?.startsWith("scene.") && entry.platform === "homeassistant")
-      .map((entry) => ({ entry, state: this._hass?.states?.[entry.entity_id] }))
-      .filter(({ entry, state }) => entry.area_id && state)
-      .sort((a, b) => (a.state.attributes?.friendly_name || a.entry.entity_id).localeCompare(b.state.attributes?.friendly_name || b.entry.entity_id));
-    const selectedAreas = new Set(this._config.areas || []);
-    this.shadowRoot.innerHTML = `<label for="scenes">Scenes</label><select id="scenes" multiple aria-label="Select scenes; all scenes in their areas will appear">${scenes.length ? scenes.map(({ entry, state }) => {
-      const name = state.attributes?.friendly_name || entry.entity_id;
-      const area = this._areas.find((item) => item.area_id === entry.area_id)?.name || entry.area_id;
-      return `<option value="${this._escape(entry.entity_id)}" ${selectedAreas.has(entry.area_id) ? "selected" : ""}>${this._escape(name)} — ${this._escape(area)}</option>`;
-    }).join("") : `<option disabled>No Home Assistant scenes with area assignments were found.</option>`}</select><div class="hint">Choose scenes by name and area. Use Ctrl-click (Windows/Linux) or Command-click (Mac) to select multiple scenes. The card shows all Home Assistant scenes in the selected areas, including scenes added later.</div><label class="toggle"><input id="names" type="checkbox" ${this._config.show_names ? "checked" : ""}> Show scene names</label><label class="toggle"><input id="titles" type="checkbox" ${this._config.show_title ? "checked" : ""}> Show area names</label>`;
-    this.shadowRoot.querySelector<HTMLSelectElement>("#scenes")?.addEventListener("change", (event) => {
-      const select = event.currentTarget as HTMLSelectElement;
-      const areaIds = [...new Set(Array.from(select.selectedOptions).map((option) => this._entities.find((entry) => entry.entity_id === option.value)?.area_id).filter((areaId): areaId is string => Boolean(areaId)))];
-      this._update({ ...this._config, areas: areaIds });
-    });
-    this.shadowRoot.querySelector<HTMLInputElement>("#names")?.addEventListener("change", (event) => this._update({ ...this._config, show_names: (event.currentTarget as HTMLInputElement).checked }));
-    this.shadowRoot.querySelector<HTMLInputElement>("#titles")?.addEventListener("change", (event) => this._update({ ...this._config, show_title: (event.currentTarget as HTMLInputElement).checked }));
+    this._rendered = true;
+    const areas = [...this._areas].sort((a, b) => a.name.localeCompare(b.name) || a.area_id.localeCompare(b.area_id));
+    const selectedAreas = new Set(this._config.areas);
+    const knownAreas = new Set(areas.map((area) => area.area_id));
+    const unknownAreas = this._config.areas.filter((id) => !knownAreas.has(id));
+    const areaOptions = unknownAreas.map((id) => `<label class="area-option unknown-area"><input type="checkbox" data-area-id="${this._escape(id)}" checked><span>Unknown area: ${this._escape(id)}</span></label>`).join("") +
+      areas.map((area) => `<label class="area-option"><input type="checkbox" data-area-id="${this._escape(area.area_id)}" ${selectedAreas.has(area.area_id) ? "checked" : ""}><span>${this._escape(area.name)}</span></label>`).join("");
+    this._content.innerHTML = `<fieldset class="area-fieldset"><legend>Areas</legend><div class="area-list">${this._loading ? `<div class="area-message" role="status">Loading areas…</div>` : this._loadError ? `<div class="area-message error" role="alert">${this._escape(this._loadError)}</div>` : areaOptions || `<div class="area-message">No areas available.</div>`}</div></fieldset>${this._loaded && unknownAreas.length ? `<div class="error" role="alert">Unknown area ID${unknownAreas.length > 1 ? "s" : ""}: ${this._escape(unknownAreas.join(", "))}</div>` : ""}<div class="hint">All Home Assistant scenes assigned to checked areas appear automatically.</div><label class="toggle"><input id="names" type="checkbox" ${this._config.show_names ? "checked" : ""}> Show scene names</label><label class="toggle"><input id="titles" type="checkbox" ${this._config.show_title ? "checked" : ""}> Show area names</label>`;
+    this._content.querySelectorAll<HTMLInputElement>("input[data-area-id]").forEach((input) => input.addEventListener("change", () => {
+      const id = input.dataset.areaId!;
+      const areas = input.checked ? [...this._config.areas, id] : this._config.areas.filter((areaId) => areaId !== id);
+      this._update({ ...this._config, areas });
+    }));
+    this._content.querySelector<HTMLInputElement>("#names")?.addEventListener("change", (event) => this._update({ ...this._config, show_names: (event.currentTarget as HTMLInputElement).checked }));
+    this._content.querySelector<HTMLInputElement>("#titles")?.addEventListener("change", (event) => this._update({ ...this._config, show_title: (event.currentTarget as HTMLInputElement).checked }));
   }
 
-  _update(config) { this._config = config; this._render(); this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true })); }
+  _update(config) {
+    const active = this.shadowRoot?.activeElement as HTMLInputElement | null;
+    const activeAreaId = active?.dataset?.areaId;
+    const activeId = active?.id;
+    this._config = config;
+    this._render();
+    const restored = activeAreaId
+      ? Array.from(this._content.querySelectorAll<HTMLInputElement>("input[data-area-id]")).find((input) => input.dataset.areaId === activeAreaId)
+      : activeId ? this._content.querySelector<HTMLInputElement>(`#${activeId}`) : null;
+    restored?.focus();
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
+  }
   _escape(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 }
 
